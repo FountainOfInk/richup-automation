@@ -1,20 +1,20 @@
 import websocket
+import time
 
-def join_game(conn: websocket.WebSocket, room_id: str, name: str, appearance: str = "#FFC73F"):
+def join_game(conn: websocket.WebSocketApp, room_id: str, name: str, appearance: str = "#FFC73F"):
     # returns the SID (of the connection?)
     conn.send("40/api/game,")
-    print(conn.recv())
-    check(conn.recv(), 'sid')
+    time.sleep(0.5)
 
     # returns a large (>12kb) json message detailing all the info of the game's current state:
     # all the properties and all their prices, if an auction is going on, who's the top bidder,
     # all the chance cards and their effects, etc. etc.
     conn.send('42/api/game,["enter-room",{"roomId":"%s"}]' % room_id)
-    print(conn.recv())
+    time.sleep(0.5)
 
     # returns a message containing all the information about the player that just joined (you!)
     conn.send('42/api/game,["join-game",{"name":"%s","appearance":"%s"}]' % (name, appearance))
-    check(conn.recv(), '42/api/game,["joined-game",')
+    time.sleep(0.5)
 
 
 

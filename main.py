@@ -1,49 +1,34 @@
-from websocket import create_connection
 import websocket
 import time
+import rel
+from isthisreal import join_game
 
 # TODO: create a thread to keep the connection alive
 #       for both the websocket, and through the HTTP
 #       maintanence-info endpoint
 
-def init_connection() -> websocket.WebSocket:
-    ws = create_connection("wss://richup.io/socket.io/?EIO=4&transport=websocket")
-    return ws
+def on_message(ws: websocket.WebSocket, message):
+    if message == "2":
+        ws.send("3")
 
-def join_game(conn: websocket.WebSocket, room_id: str, name: str, appearance: str = "#FFC73F"):
-    # returns the SID (of the connection?)
-    conn.send("40/api/game,")
-    print(conn.recv())
-    check(conn.recv(), 'sid')
+def on_error(ws, error):
+    print(error)
 
-    # returns a large (>12kb) json message detailing all the info of the game's current state:
-    # all the properties and all their prices, if an auction is going on, who's the top bidder,
-    # all the chance cards and their effects, etc. etc.
-    print('42/api/game,["enter-room",{"roomId":"{%s}"}]' % room_id)
-    conn.send('42/api/game,["enter-room",{"roomId":"{%s}"}]' % room_id)
-    check(conn.recv(), '42/api/game,["entered-room",')
+def on_close(ws, close_status_code, close_msg):
+    print("### closed ###")
 
-    # returns a message containing all the information about the player that just joined (you!)
-    conn.send('42/api/game,["join-game",{"name":"%s","appearance":"%s"}]' % (name, appearance))
-    check(conn.recv(), '42/api/game,["joined-game",')
-
-    
-
-def terminate(conn: websocket.WebSocket):
-    conn.close()
-
-# check if a string contains an expected substring, if it doesn't, print the string and raise an error
-def check(string, expected_substring):
-    try:
-        assert expected_substring in string
-    except AssertionError:
-        print("Substring not found in string!")
-        print("String contents:")
-        print(string)
-        raise AssertionError
+def on_open(ws):
+    print("Opened connection")
+    join_game(ws, "ahr8d", "west has risen", "#FFFFFF")
 
 if __name__ == "__main__":
-    c = init_connection()
-    join_game(c, "q9gvf", "hello")
-    # time.sleep(5)
-    # terminate(c)
+    websocket.enableTrace(True)
+    ws = websocket.WebSocketApp("wss://richup.io/socket.io/?EIO=4&transport=websocket",
+                              on_open=on_open,
+                              on_message=on_message,
+                              on_error=on_error,
+                              on_close=on_close)
+
+    ws.run_forever(dispatcher=rel, reconnect=5)  # Set dispatcher to automatic reconnection, 5 second reconnect delay if connection closed unexpectedly
+    rel.signal(2, rel.abort)  # Keyboard Interrupt
+    rel.dispatch()
