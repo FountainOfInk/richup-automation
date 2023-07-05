@@ -1,7 +1,25 @@
 import websocket
 import time
 
-def join_game(conn: websocket.WebSocketApp, room_id: str, name: str, appearance: str = "#FFC73F"):
+
+class Game:
+    room_id: str
+
+class playerBot:
+    conn: websocket.WebSocketApp
+    name: str
+    appearance: str
+    uid: str
+    game: Game
+
+    def __init__(self, conn, room_id, name, appearance) -> None:
+        self.conn = conn
+        self.room_id = room_id
+        self.name = name
+        self.appearance = appearance
+    
+        
+def join_game(conn: websocket.WebSocketApp, room_id: str, name: str, appearance: str = "#FFC73F") -> str:
     # returns the SID (of the connection?)
     conn.send("40/api/game,")
     time.sleep(0.5)
@@ -17,16 +35,7 @@ def join_game(conn: websocket.WebSocketApp, room_id: str, name: str, appearance:
     time.sleep(0.5)
 
 
-
+def roll_dice():
+    pass
 def terminate(conn: websocket.WebSocket):
     conn.close()
-
-# check if a string contains an expected substring, if it doesn't, print the string and raise an error
-def check(string, expected_substring):
-    try:
-        assert expected_substring in string
-    except AssertionError:
-        print("Substring not found in string!")
-        print("String contents:")
-        print(string)
-        raise AssertionError
