@@ -1,5 +1,6 @@
 import websocket
 import time
+import json
 
 GAME_LOBBY = 0
 GAME_IN_PROGRESS = 1
@@ -7,7 +8,11 @@ GAME_FINISHED = 2
 
 class Game:
     room_id: str
+    # the index of the current player
+    # whose turn it is, where 1 is
+    # the first player
     current_turn: int
+    players: int
     state: int
 
     def __init__(self, room_id) -> None:
@@ -34,9 +39,10 @@ class playerBot:
 
         self.game = Game(room_id)
         self.enter_room()
+        print(f"\nGAMESTATE:{self.game.state}\n")
         if not self.game.state == GAME_IN_PROGRESS:
             self.join_game()
-
+        
         
     def enter_room(self):
         # returns the SID (of the connection?)
@@ -53,6 +59,38 @@ class playerBot:
         # returns a message containing all the information about the player that just joined (you!)
         self.conn.send('42/api/game,["join-game",{"name":"%s","appearance":"%s"}]' % (self.name, self.appearance))
         time.sleep(0.2)
+
+    # set game.state, game.current_turn
+    def handle_entered_room(self, message: str):
+        room_data = json.loads(message[len("42/api/game,"):])[1]["room"]
+        self.game.state = room_data["state"]
+        self.game.current_turn = room_data["stats"]["turnsCount"] + 1
+    
+    # set my_turn, game.current_turn, and game.state
+    def handle_game_started(self, message: str):
+        game_data = json.loads(message[len("42/api/game,"):])[1]
+        self.game.players = len(game_data["participantsOrder"])
+        for i,player in enumerate(game_data["participantsOrder"]):
+            if player["id"] == self.uid:
+                self.my_turn = i+1
+        self.game.current_turn = 1
+        self.game.state = GAME_IN_PROGRESS
+
+    # set uid
+    def handle_join_game(self, message: str):
+        self_data = json.loads(message[len("42/api/game,"):])[1]["selfPlayer"]
+        self.uid = self_data["id"]
+    
+    # set uid, game.players, and my_turn
+    def handle_rejoin(self, message: str):
+        room_data = json.loads(message[len("42/api/game,"):])[1]["room"]
+        self.uid = room_data['selfParticipantId']
+        self.game.players = len(room_data["players"])
+        for i,player in enumerate(room_data["players"]):
+            print(f"player:{player['name']}, id:{player['id']}")
+            print(f"me: {self.name}, id: {self.uid}")
+            if player["id"] == self.uid:
+                self.my_turn = i+1
 
 
     def roll_dice(self):
