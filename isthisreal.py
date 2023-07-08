@@ -15,11 +15,14 @@ class Game:
     current_turn: int
     players: int
     state: int
+    host: str
 
     def __init__(self, room_id) -> None:
         self.room_id = room_id
         self.state = None
         self.current_turn = None
+        self.players = None
+        self.host = None
 
 class playerBot:
     conn: websocket.WebSocketApp
@@ -80,7 +83,7 @@ class playerBot:
         self_data = json.loads(message[len("42/api/game,"):])[1]["selfPlayer"]
         self.uid = self_data["id"]
     
-    # set game.state, game.current_turn
+    # set game.state, game.current_turn, game.host
     def handle_entered_room(self, message: str):
         room_data = json.loads(message[len("42/api/game,"):])[1]["room"]
         self.game.state = room_data["state"]
@@ -110,6 +113,15 @@ class playerBot:
     
     def end_turn(self):
         self.conn.send('42/api/game,["end-turn"]')
+    
+    def start_game(self):
+        self.conn.send('42/api/game,["start-game"]')
+    
+    def resign(self):
+        self.conn.send('42/api/game,["do-bankrupt"]')
+    
+    def purchase_current_property(self):
+        self.conn.send('42/api/game,["purchase-property"]')
 
     def leave(self):
         self.conn.close()
