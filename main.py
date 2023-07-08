@@ -4,6 +4,7 @@ import json
 import rel
 from isthisreal import playerBot
 import isthisreal
+from utils import log
 
 # TODO: create a thread to keep the connection alive
 #       for both the websocket, and through the HTTP
@@ -16,11 +17,14 @@ headers = {
 bot: playerBot = None
 
 def on_message(ws: websocket.WebSocket, message):
-    print("hi")
-    print(f"Recieved: {message}")
+    # if not "entered-room" in message:
+    log(f"Recieved: {message}", "info")
     if message == "2":
         ws.send("3")
-        # return
+        return
+    # if "game-error" in message:
+    #     log(message, "error")
+    #     # raise ValueError
 
     elif "joined-game" in message:
         bot.handle_join_game(message)
@@ -29,11 +33,15 @@ def on_message(ws: websocket.WebSocket, message):
     # automatically created from a json example
     # and just load data from that
     elif "entered-room" in message:
+        log("entered room")
         room_data = json.loads(message[len("42/api/game,"):])[1]["room"]
-        if room_data["state"] == isthisreal.GAME_IN_PROGRESS:
+        log(f'room state: {room_data["state"]}, gameinprogress: {isthisreal.GAME_IN_PROGRESS}')
+        bot.handle_entered_room(message)
+        assert bot.game.state == room_data["state"]
+        if bot.game.state == isthisreal.GAME_IN_PROGRESS:
+            log("REJOINING")
             bot.handle_rejoin(message)
-        else:
-            bot.handle_entered_room(message)
+
 
 
     elif "game-started" in message:
@@ -41,33 +49,52 @@ def on_message(ws: websocket.WebSocket, message):
     
 
     if bot.game.state == isthisreal.GAME_IN_PROGRESS:
-        #print(f"it is the {bot.game.current_turn}th turn, and my turn is every {bot.my_turn} moves")
-        # M % N = 0, where M is some multiple of N
-        # so if it's the 9th turn and we are the 3rd
-        # player in order, it's our turn (for the third time)
-        print(f"Current turn: {bot.game.current_turn}, my turn: {bot.my_turn}")
-        if bot.game.current_turn == bot.my_turn:
-            print("my turn!")
-            if "dice-rolled" in message:
-                dice_data = json.loads(message[len("42/api/game,"):])[1]["dice"]
-                doubles = dice_data[0] == dice_data[1]
-                bot.can_roll_dice = doubles
-
-            if bot.can_roll_dice:
-                print("i can roll the dice, rolling")
-                bot.roll_dice()
-            else:
-                print("i cannot roll the dice, ending my turn")
-                bot.can_roll_dice = True
-                bot.end_turn()
-
         if "turn-ended" in message:
-            bot.game.current_turn = (bot.game.current_turn + 1) % bot.game.players
+            bot.game.current_turn += 1
+        # nth_players_turn = bot.game.current_turn % bot.game.players
+        # # M % N = 0, where M is some multiple of N
+        # # so if it's the 9th turn and we are the 3rd
+        # # player in order, it's our turn (for the third time)
+        # assert bot.game.current_turn is not None
+        # assert bot.my_turn is not None
+        # log(f"Current turn: {bot.game.current_turn}, Nth player's turn: {nth_players_turn}, my turn: {bot.my_turn}")
+        # if nth_players_turn == bot.my_turn:
+        if "This is not your turn" in message:
+            bot.waitingforturn = True
+            return
+        elif "You have already rolled the dice in this turn" in message:
+            bot.end_turn()
+            bot.waitingforturn = False
+        else:
+            bot.waitingforturn = False
+
+        
+        if not bot.waitingforturn:
+            bot.roll_dice()
+
+        # log("my turn!", "success")
+        # if "dice-rolled" in message:
+        #     dice_data = json.loads(message[len("42/api/game,"):])[1]["dice"]
+        #     doubles = dice_data[0] == dice_data[1]
+        #     bot.can_roll_dice = doubles
+
+        # if not bot.waitingforturn:
+        #     log("i can roll the dice, rolling")
+        #     bot.roll_dice()
+        # else:
+        #     log("i cannot roll the dice, ending my turn")
+        #     bot.can_roll_dice = True
+            
+        time.sleep(0.2)
+        
+
+    
         
 
 
 def on_error(ws, error):
-    # print(error)
+    raise error
+    log(error, "error")
     pass
 
 def on_close(ws, close_status_code, close_msg):
@@ -76,9 +103,9 @@ def on_close(ws, close_status_code, close_msg):
 
 # MAIN() is here!!
 def on_open(ws):
-    print("Opened connection")
+    log("Opened connection", "success")
     global bot
-    bot = playerBot(ws, "dnvr5", "amonger")
+    bot = playerBot(ws, "nos7b", "amonger")
 
 if __name__ == "__main__":
     # websocket.enableTrace(True, level="trace")
